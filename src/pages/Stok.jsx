@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import toast, { Toaster } from 'react-hot-toast'
+import BarcodeScanner from '../components/BarcodeScanner'
 
 const CATEGORIES = ['Mainan', 'Peralatan Sekolah', 'Tas', 'Buket', 'Hijab', 'Frozenan', 'Lainnya']
 const CATEGORY_ICONS = {
@@ -9,9 +10,7 @@ const CATEGORY_ICONS = {
   'Buket': '💐', 'Hijab': '🧕', 'Frozenan': '🧊', 'Lainnya': '📦',
 }
 
-function formatRupiah(n) {
-  return 'Rp ' + Number(n).toLocaleString('id-ID')
-}
+function formatRupiah(n) { return 'Rp ' + Number(n).toLocaleString('id-ID') }
 
 export default function Stok() {
   const navigate = useNavigate()
@@ -23,6 +22,7 @@ export default function Stok() {
   const [editProduct, setEditProduct] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
   const fileInputRef = useRef(null)
 
   const [form, setForm] = useState({
@@ -33,8 +33,7 @@ export default function Stok() {
 
   async function loadProducts() {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('products').select('*').order('category').order('name')
+    const { data, error } = await supabase.from('products').select('*').order('category').order('name')
     if (!error) setProducts(data || [])
     setLoading(false)
   }
@@ -56,44 +55,31 @@ export default function Stok() {
 
   function openEdit(product) {
     setEditProduct(product)
-    setForm({
-      name: product.name,
-      category: product.category,
-      price: product.price,
-      stock: product.stock,
-      barcode: product.barcode || '',
-      photo_url: product.photo_url || '',
-    })
+    setForm({ name: product.name, category: product.category, price: product.price, stock: product.stock, barcode: product.barcode || '', photo_url: product.photo_url || '' })
     setShowModal(true)
   }
 
   async function handlePhotoUpload(e) {
     const file = e.target.files[0]
     if (!file) return
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('Ukuran foto maksimal 2MB')
-      return
-    }
+    if (file.size > 2 * 1024 * 1024) { toast.error('Ukuran foto maksimal 2MB'); return }
     setUploadingPhoto(true)
     const ext = file.name.split('.').pop()
     const fileName = `${Date.now()}.${ext}`
-    const { data, error } = await supabase.storage
-      .from('product-images')
-      .upload(fileName, file)
-    if (error) {
-      toast.error('Gagal upload foto')
-    } else {
-      const { data: urlData } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(fileName)
+    const { error } = await supabase.storage.from('product-images').upload(fileName, file)
+    if (error) { toast.error('Gagal upload foto') }
+    else {
+      const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(fileName)
       setForm(f => ({ ...f, photo_url: urlData.publicUrl }))
       toast.success('Foto berhasil diupload')
     }
     setUploadingPhoto(false)
   }
 
-  async function handleRemovePhoto() {
-    setForm(f => ({ ...f, photo_url: '' }))
+  function handleBarcodeScanned(code) {
+    setShowBarcodeScanner(false)
+    setForm(f => ({ ...f, barcode: code }))
+    toast.success(`Barcode terdeteksi: ${code}`)
   }
 
   async function handleSave() {
@@ -102,12 +88,9 @@ export default function Stok() {
     if (!form.stock || isNaN(form.stock)) { toast.error('Stok wajib diisi'); return }
 
     const payload = {
-      name: form.name.trim(),
-      category: form.category,
-      price: parseInt(form.price),
-      stock: parseInt(form.stock),
-      barcode: form.barcode.trim() || null,
-      photo_url: form.photo_url || null,
+      name: form.name.trim(), category: form.category,
+      price: parseInt(form.price), stock: parseInt(form.stock),
+      barcode: form.barcode.trim() || null, photo_url: form.photo_url || null,
     }
 
     if (editProduct) {
@@ -131,9 +114,7 @@ export default function Stok() {
     loadProducts()
   }
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-  }
+  async function handleLogout() { await supabase.auth.signOut() }
 
   const stockStats = {
     total: products.length,
@@ -145,13 +126,10 @@ export default function Stok() {
     <div className="min-h-screen bg-neutral-50">
       <Toaster position="top-center" toastOptions={{ duration: 2000 }} />
 
-      {/* NAV */}
       <nav className="bg-white border-b border-neutral-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-neutral-900 rounded-lg flex items-center justify-center">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-              <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
-            </svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
           </div>
           <span className="font-semibold text-neutral-900 text-sm">Sistem Kasir</span>
         </div>
@@ -163,25 +141,17 @@ export default function Stok() {
       </nav>
 
       <div className="max-w-6xl mx-auto px-4 py-6">
-
-        {/* HEADER */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-lg font-semibold text-neutral-900">Manajemen Stok</h1>
             <p className="text-xs text-neutral-500 mt-0.5">{products.length} produk terdaftar</p>
           </div>
-          <button
-            onClick={openAdd}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
+          <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Tambah Barang
           </button>
         </div>
 
-        {/* STATS */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           <div className="bg-white rounded-xl border border-neutral-200 p-4">
             <div className="text-xs text-neutral-500 mb-1">Total Produk</div>
@@ -197,31 +167,19 @@ export default function Stok() {
           </div>
         </div>
 
-        {/* FILTER & SEARCH */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Cari nama, kategori, atau barcode..."
-              className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 transition-colors"
-            />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Cari nama, kategori, atau barcode..."
+              className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 transition-colors" />
           </div>
-          <select
-            value={filterCategory}
-            onChange={e => setFilterCategory(e.target.value)}
-            className="px-3 py-2 text-sm bg-white border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 transition-colors"
-          >
+          <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+            className="px-3 py-2 text-sm bg-white border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 transition-colors">
             <option value="Semua">Semua Kategori</option>
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
 
-        {/* TABLE */}
         <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-16 text-neutral-400 text-sm">Memuat data...</div>
@@ -250,10 +208,7 @@ export default function Stok() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-lg bg-neutral-100 flex items-center justify-center text-lg flex-shrink-0 overflow-hidden">
-                            {product.photo_url
-                              ? <img src={product.photo_url} alt={product.name} className="w-full h-full object-cover" />
-                              : CATEGORY_ICONS[product.category] || '📦'
-                            }
+                            {product.photo_url ? <img src={product.photo_url} alt={product.name} className="w-full h-full object-cover" /> : CATEGORY_ICONS[product.category] || '📦'}
                           </div>
                           <span className="text-sm font-medium text-neutral-800">{product.name}</span>
                         </div>
@@ -261,30 +216,18 @@ export default function Stok() {
                       <td className="px-4 py-3 text-xs text-neutral-500">{product.category}</td>
                       <td className="px-4 py-3 text-sm font-medium text-neutral-800 text-right">{formatRupiah(product.price)}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`text-sm font-semibold ${product.stock === 0 ? 'text-red-500' : product.stock <= 5 ? 'text-orange-500' : 'text-neutral-800'}`}>
-                          {product.stock}
-                        </span>
+                        <span className={`text-sm font-semibold ${product.stock === 0 ? 'text-red-500' : product.stock <= 5 ? 'text-orange-500' : 'text-neutral-800'}`}>{product.stock}</span>
                       </td>
                       <td className="px-4 py-3 text-xs text-neutral-400 font-mono">{product.barcode || '—'}</td>
                       <td className="px-4 py-3 text-center">
-                        {product.stock === 0 ? (
-                          <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">Habis</span>
-                        ) : product.stock <= 5 ? (
-                          <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-600">Menipis</span>
-                        ) : (
-                          <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-600">Tersedia</span>
-                        )}
+                        {product.stock === 0 ? <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">Habis</span>
+                          : product.stock <= 5 ? <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-600">Menipis</span>
+                          : <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-600">Tersedia</span>}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => openEdit(product)}
-                            className="text-xs text-neutral-600 hover:text-neutral-900 px-2 py-1 rounded-lg hover:bg-neutral-100 transition-colors"
-                          >Edit</button>
-                          <button
-                            onClick={() => setDeleteConfirm(product)}
-                            className="text-xs text-neutral-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
-                          >Hapus</button>
+                          <button onClick={() => openEdit(product)} className="text-xs text-neutral-600 hover:text-neutral-900 px-2 py-1 rounded-lg hover:bg-neutral-100 transition-colors">Edit</button>
+                          <button onClick={() => setDeleteConfirm(product)} className="text-xs text-neutral-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">Hapus</button>
                         </div>
                       </td>
                     </tr>
@@ -301,43 +244,28 @@ export default function Stok() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-y-auto max-h-[90vh]">
             <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-neutral-900">
-                {editProduct ? 'Edit Barang' : 'Tambah Barang Baru'}
-              </h2>
+              <h2 className="text-base font-semibold text-neutral-900">{editProduct ? 'Edit Barang' : 'Tambah Barang Baru'}</h2>
               <button onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-600">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
 
             <div className="px-6 py-4 space-y-4">
-
               {/* FOTO */}
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-2">Foto Produk (opsional, maks. 2MB)</label>
                 {form.photo_url ? (
                   <div className="relative w-24 h-24">
                     <img src={form.photo_url} alt="preview" className="w-24 h-24 object-cover rounded-xl border border-neutral-200" />
-                    <button
-                      onClick={handleRemovePhoto}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
-                    >×</button>
+                    <button onClick={() => setForm(f => ({ ...f, photo_url: '' }))}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600">×</button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingPhoto}
-                    className="w-24 h-24 border-2 border-dashed border-neutral-200 rounded-xl flex flex-col items-center justify-center text-neutral-400 hover:border-neutral-400 hover:text-neutral-600 transition-colors"
-                  >
-                    {uploadingPhoto ? (
-                      <span className="text-xs">Upload...</span>
-                    ) : (
+                  <button onClick={() => fileInputRef.current?.click()} disabled={uploadingPhoto}
+                    className="w-24 h-24 border-2 border-dashed border-neutral-200 rounded-xl flex flex-col items-center justify-center text-neutral-400 hover:border-neutral-400 hover:text-neutral-600 transition-colors">
+                    {uploadingPhoto ? <span className="text-xs">Upload...</span> : (
                       <>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-                          <polyline points="21 15 16 10 5 21"/>
-                        </svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                         <span className="text-xs mt-1">Upload</span>
                       </>
                     )}
@@ -349,23 +277,15 @@ export default function Stok() {
               {/* NAMA */}
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">Nama Barang *</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="misal: Mainan Mobil Remote"
-                  className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors"
-                />
+                <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="misal: Mainan Mobil Remote"
+                  className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors" />
               </div>
 
               {/* KATEGORI */}
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">Kategori *</label>
-                <select
-                  value={form.category}
-                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors"
-                >
+                <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors">
                   {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_ICONS[c]} {c}</option>)}
                 </select>
               </div>
@@ -374,52 +294,51 @@ export default function Stok() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-neutral-600 mb-1.5">Harga Jual (Rp) *</label>
-                  <input
-                    type="number"
-                    value={form.price}
-                    onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                    placeholder="0"
-                    className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors"
-                  />
+                  <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="0"
+                    className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-neutral-600 mb-1.5">Stok *</label>
-                  <input
-                    type="number"
-                    value={form.stock}
-                    onChange={e => setForm(f => ({ ...f, stock: e.target.value }))}
-                    placeholder="0"
-                    className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors"
-                  />
+                  <input type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: e.target.value }))} placeholder="0"
+                    className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors" />
                 </div>
               </div>
 
-              {/* BARCODE */}
+              {/* BARCODE dengan tombol scan */}
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">Barcode (opsional)</label>
-                <input
-                  type="text"
-                  value={form.barcode}
-                  onChange={e => setForm(f => ({ ...f, barcode: e.target.value }))}
-                  placeholder="Scan atau ketik barcode bawaan produk"
-                  className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors font-mono"
-                />
-                <p className="text-xs text-neutral-400 mt-1">Untuk barang tanpa barcode, kosongkan saja</p>
+                <div className="flex gap-2">
+                  <input type="text" value={form.barcode} onChange={e => setForm(f => ({ ...f, barcode: e.target.value }))}
+                    placeholder="Scan atau ketik barcode"
+                    className="flex-1 px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors font-mono" />
+                  <button type="button" onClick={() => setShowBarcodeScanner(true)}
+                    className="px-3 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-medium flex-shrink-0"
+                    title="Scan barcode dengan kamera">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+                      <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                    Scan
+                  </button>
+                </div>
+                <p className="text-xs text-neutral-400 mt-1">Hasil scan bisa diedit manual jika perlu</p>
               </div>
             </div>
 
             <div className="px-6 py-4 border-t border-neutral-100 flex gap-3">
-              <button
-                onClick={() => setShowModal(false)}
-                className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors"
-              >Batal</button>
-              <button
-                onClick={handleSave}
-                className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors"
-              >Simpan</button>
+              <button onClick={() => setShowModal(false)} className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors">Batal</button>
+              <button onClick={handleSave} className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors">Simpan</button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* BARCODE SCANNER untuk form */}
+      {showBarcodeScanner && (
+        <BarcodeScanner
+          onDetected={handleBarcodeScanned}
+          onClose={() => setShowBarcodeScanner(false)}
+        />
       )}
 
       {/* DELETE CONFIRM */}
@@ -427,18 +346,10 @@ export default function Stok() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
             <h2 className="text-base font-semibold text-neutral-900 mb-2">Hapus Barang?</h2>
-            <p className="text-sm text-neutral-500 mb-6">
-              <span className="font-medium text-neutral-800">"{deleteConfirm.name}"</span> akan dihapus dari daftar produk. Data transaksi lama tetap tersimpan.
-            </p>
+            <p className="text-sm text-neutral-500 mb-6"><span className="font-medium text-neutral-800">"{deleteConfirm.name}"</span> akan dihapus dari daftar produk. Data transaksi lama tetap tersimpan.</p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors"
-              >Batal</button>
-              <button
-                onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 py-2.5 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 transition-colors"
-              >Hapus</button>
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors">Batal</button>
+              <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 py-2.5 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 transition-colors">Hapus</button>
             </div>
           </div>
         </div>
