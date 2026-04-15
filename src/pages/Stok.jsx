@@ -23,6 +23,7 @@ export default function Stok() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const fileInputRef = useRef(null)
 
   const [form, setForm] = useState({
@@ -33,7 +34,13 @@ export default function Stok() {
 
   async function loadProducts() {
     setLoading(true)
-    const { data, error } = await supabase.from('products').select('*').order('category').order('name')
+    // FIX: tambah filter is_active = true agar produk yang dihapus tidak muncul
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('is_active', true)
+      .order('category')
+      .order('name')
     if (!error) setProducts(data || [])
     setLoading(false)
   }
@@ -98,7 +105,7 @@ export default function Stok() {
       if (error) { toast.error('Gagal menyimpan perubahan'); return }
       toast.success('Barang berhasil diperbarui')
     } else {
-      const { error } = await supabase.from('products').insert(payload)
+      const { error } = await supabase.from('products').insert({ ...payload, is_active: true })
       if (error) { toast.error('Gagal menambah barang'); return }
       toast.success('Barang berhasil ditambahkan')
     }
@@ -114,7 +121,10 @@ export default function Stok() {
     loadProducts()
   }
 
-  async function handleLogout() { await supabase.auth.signOut() }
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    setShowLogoutConfirm(false)
+  }
 
   const stockStats = {
     total: products.length,
@@ -136,7 +146,7 @@ export default function Stok() {
         <div className="flex items-center gap-1">
           <button onClick={() => navigate('/kasir')} className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors">Kasir</button>
           <button onClick={() => navigate('/laporan')} className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors">Laporan</button>
-          <button onClick={handleLogout} className="px-3 py-1.5 text-xs text-neutral-500 hover:bg-neutral-100 rounded-lg transition-colors">Keluar</button>
+          <button onClick={() => setShowLogoutConfirm(true)} className="px-3 py-1.5 text-xs text-neutral-500 hover:bg-neutral-100 rounded-lg transition-colors">Keluar</button>
         </div>
       </nav>
 
@@ -220,9 +230,11 @@ export default function Stok() {
                       </td>
                       <td className="px-4 py-3 text-xs text-neutral-400 font-mono">{product.barcode || '—'}</td>
                       <td className="px-4 py-3 text-center">
-                        {product.stock === 0 ? <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">Habis</span>
-                          : product.stock <= 5 ? <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-600">Menipis</span>
-                          : <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-600">Tersedia</span>}
+                        {product.stock === 0
+                          ? <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">Habis</span>
+                          : product.stock <= 5
+                            ? <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-600">Menipis</span>
+                            : <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-600">Tersedia</span>}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
@@ -304,7 +316,7 @@ export default function Stok() {
                 </div>
               </div>
 
-              {/* BARCODE dengan tombol scan */}
+              {/* BARCODE */}
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">Barcode (opsional)</label>
                 <div className="flex gap-2">
@@ -312,8 +324,7 @@ export default function Stok() {
                     placeholder="Scan atau ketik barcode"
                     className="flex-1 px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors font-mono" />
                   <button type="button" onClick={() => setShowBarcodeScanner(true)}
-                    className="px-3 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-medium flex-shrink-0"
-                    title="Scan barcode dengan kamera">
+                    className="px-3 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-medium flex-shrink-0">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
                       <circle cx="12" cy="13" r="4"/>
@@ -333,12 +344,9 @@ export default function Stok() {
         </div>
       )}
 
-      {/* BARCODE SCANNER untuk form */}
+      {/* BARCODE SCANNER */}
       {showBarcodeScanner && (
-        <BarcodeScanner
-          onDetected={handleBarcodeScanned}
-          onClose={() => setShowBarcodeScanner(false)}
-        />
+        <BarcodeScanner onDetected={handleBarcodeScanned} onClose={() => setShowBarcodeScanner(false)} />
       )}
 
       {/* DELETE CONFIRM */}
@@ -350,6 +358,20 @@ export default function Stok() {
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors">Batal</button>
               <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 py-2.5 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 transition-colors">Hapus</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LOGOUT CONFIRM */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+            <h2 className="text-base font-semibold text-neutral-900 mb-2">Keluar dari Akun?</h2>
+            <p className="text-sm text-neutral-500 mb-6">Kamu akan keluar dari sesi ini. Pastikan semua transaksi sudah tersimpan.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors">Batal</button>
+              <button onClick={handleLogout} className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors">Keluar</button>
             </div>
           </div>
         </div>

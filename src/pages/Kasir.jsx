@@ -29,6 +29,7 @@ export default function Kasir() {
   const [showScanner, setShowScanner] = useState(false)
   const [showCartSheet, setShowCartSheet] = useState(false)
   const [barcodeBuffer, setBarcodeBuffer] = useState('')
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const searchRef = useRef(null)
   const barcodeTimer = useRef(null)
 
@@ -157,7 +158,10 @@ export default function Kasir() {
     setPayLoading(false)
   }
 
-  async function handleLogout() { await supabase.auth.signOut() }
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    setShowLogoutConfirm(false)
+  }
 
   // CART CONTENT — shared between sidebar and bottom sheet
   const CartContent = () => (
@@ -239,7 +243,7 @@ export default function Kasir() {
         <div className="flex items-center gap-1">
           <button onClick={() => navigate('/stok')} className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors">Stok</button>
           <button onClick={() => navigate('/laporan')} className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors">Laporan</button>
-          <button onClick={handleLogout} className="px-3 py-1.5 text-xs text-neutral-500 hover:bg-neutral-100 rounded-lg transition-colors">Keluar</button>
+          <button onClick={() => setShowLogoutConfirm(true)} className="px-3 py-1.5 text-xs text-neutral-500 hover:bg-neutral-100 rounded-lg transition-colors">Keluar</button>
         </div>
       </nav>
 
@@ -305,7 +309,6 @@ export default function Kasir() {
           </div>
 
           {/* PRODUCT GRID */}
-          {/* Mobile: pb-24 to avoid FAB overlap, Desktop: no padding needed */}
           <div className="flex-1 overflow-y-auto p-3 pb-24 md:pb-3">
             {loading ? (
               <div className="flex items-center justify-center h-full text-neutral-400 text-sm">Memuat produk...</div>
@@ -338,7 +341,7 @@ export default function Kasir() {
           </div>
         </div>
 
-        {/* DESKTOP CART SIDEBAR — hidden on mobile */}
+        {/* DESKTOP CART SIDEBAR */}
         <div className="hidden md:flex w-72 lg:w-80 bg-white border-l border-neutral-200 flex-col flex-shrink-0">
           <div className="px-4 py-3 border-b border-neutral-200 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-2">
@@ -358,7 +361,7 @@ export default function Kasir() {
         </div>
       </div>
 
-      {/* MOBILE FLOATING CART BUTTON — only on mobile */}
+      {/* MOBILE FLOATING CART BUTTON */}
       <div className="md:hidden fixed bottom-4 left-4 right-4 z-30">
         <button
           onClick={() => setShowCartSheet(true)}
@@ -380,9 +383,7 @@ export default function Kasir() {
       {/* MOBILE CART BOTTOM SHEET */}
       {showCartSheet && (
         <div className="md:hidden fixed inset-0 z-40">
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowCartSheet(false)} />
-          {/* Sheet */}
           <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl flex flex-col" style={{ maxHeight: '85vh' }}>
             <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-2">
@@ -441,6 +442,20 @@ export default function Kasir() {
                 className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                 {payLoading ? 'Memproses...' : 'Konfirmasi'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LOGOUT CONFIRM */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
+            <h2 className="text-base font-semibold text-neutral-900 mb-2">Keluar dari Akun?</h2>
+            <p className="text-sm text-neutral-500 mb-6">Kamu akan keluar dari sesi ini. Pastikan semua transaksi sudah tersimpan.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors">Batal</button>
+              <button onClick={handleLogout} className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors">Keluar</button>
             </div>
           </div>
         </div>

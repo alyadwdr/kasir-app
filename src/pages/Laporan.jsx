@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import toast, { Toaster } from 'react-hot-toast'
@@ -21,11 +21,11 @@ function getDateRange(period, customStart, customEnd) {
   return { start, end }
 }
 
-// Line chart SVG component
-function LineChart({ incomeData, expenseData, labels }) {
+// ─── Weekly Line Chart (7 hari) ───────────────────────────────────────────────
+function WeeklyChart({ incomeData, expenseData, labels }) {
   const [tooltip, setTooltip] = useState(null)
   const svgRef = useRef(null)
-  const W = 600, H = 140, PAD = { t: 10, r: 10, b: 28, l: 48 }
+  const W = 520, H = 160, PAD = { t: 12, r: 12, b: 32, l: 52 }
   const chartW = W - PAD.l - PAD.r
   const chartH = H - PAD.t - PAD.b
   const n = labels.length
@@ -38,11 +38,10 @@ function LineChart({ incomeData, expenseData, labels }) {
 
   function makePath(data) {
     if (data.every(v => v === 0)) return ''
-    const pts = data.map((v, i) => `${xPos(i)},${yPos(v)}`)
-    return 'M' + pts.join(' L')
+    return 'M' + data.map((v, i) => `${xPos(i)},${yPos(v)}`).join(' L')
   }
 
-  function makeArea(data, color) {
+  function makeArea(data) {
     if (data.every(v => v === 0)) return ''
     const top = data.map((v, i) => `${xPos(i)},${yPos(v)}`).join(' L')
     const bot = [...data].reverse().map((_, ri) => {
@@ -52,15 +51,13 @@ function LineChart({ incomeData, expenseData, labels }) {
     return `M${top} L${bot} Z`
   }
 
-  // y-axis ticks
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(maxVal * f))
+  const ticks = [0, 0.5, 1].map(f => Math.round(maxVal * f))
 
   function handleMouseMove(e) {
     if (!svgRef.current) return
     const rect = svgRef.current.getBoundingClientRect()
     const x = (e.clientX - rect.left) * (W / rect.width)
-    const relX = x - PAD.l
-    const idx = Math.round(relX / (chartW / Math.max(n - 1, 1)))
+    const idx = Math.round((x - PAD.l) / (chartW / Math.max(n - 1, 1)))
     if (idx >= 0 && idx < n) setTooltip(idx)
   }
 
@@ -68,8 +65,6 @@ function LineChart({ incomeData, expenseData, labels }) {
     <div className="relative w-full">
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full"
         onMouseMove={handleMouseMove} onMouseLeave={() => setTooltip(null)}>
-
-        {/* Grid lines */}
         {ticks.map((t, i) => (
           <g key={i}>
             <line x1={PAD.l} y1={yPos(t)} x2={W - PAD.r} y2={yPos(t)} stroke="#e5e5e5" strokeWidth="0.8" />
@@ -78,60 +73,91 @@ function LineChart({ incomeData, expenseData, labels }) {
             </text>
           </g>
         ))}
-
-        {/* Area fills */}
-        {makePath(incomeData) && (
-          <path d={makeArea(incomeData)} fill="#16a34a" fillOpacity="0.08" />
-        )}
-        {makePath(expenseData) && (
-          <path d={makeArea(expenseData)} fill="#dc2626" fillOpacity="0.08" />
-        )}
-
-        {/* Lines */}
-        {makePath(incomeData) && (
-          <path d={makePath(incomeData)} fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        )}
-        {makePath(expenseData) && (
-          <path d={makePath(expenseData)} fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        )}
-
-        {/* Data points */}
-        {incomeData.map((v, i) => v > 0 && (
-          <circle key={i} cx={xPos(i)} cy={yPos(v)} r="3" fill="#16a34a" />
-        ))}
-        {expenseData.map((v, i) => v > 0 && (
-          <circle key={i} cx={xPos(i)} cy={yPos(v)} r="3" fill="#dc2626" />
-        ))}
-
-        {/* Tooltip vertical line */}
+        {makeArea(incomeData) && <path d={makeArea(incomeData)} fill="#16a34a" fillOpacity="0.08" />}
+        {makeArea(expenseData) && <path d={makeArea(expenseData)} fill="#dc2626" fillOpacity="0.08" />}
+        {makePath(incomeData) && <path d={makePath(incomeData)} fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
+        {makePath(expenseData) && <path d={makePath(expenseData)} fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
+        {incomeData.map((v, i) => v > 0 && <circle key={i} cx={xPos(i)} cy={yPos(v)} r="3" fill="#16a34a" />)}
+        {expenseData.map((v, i) => v > 0 && <circle key={i} cx={xPos(i)} cy={yPos(v)} r="3" fill="#dc2626" />)}
         {tooltip !== null && (
           <line x1={xPos(tooltip)} y1={PAD.t} x2={xPos(tooltip)} y2={PAD.t + chartH} stroke="#737373" strokeWidth="1" strokeDasharray="3,3" />
         )}
-
-        {/* X labels */}
         {labels.map((lbl, i) => (
           <text key={i} x={xPos(i)} y={H - 8} textAnchor="middle" fontSize="9" fill={tooltip === i ? '#171717' : '#a3a3a3'}
-            fontWeight={tooltip === i ? '600' : '400'}>
-            {lbl}
-          </text>
+            fontWeight={tooltip === i ? '600' : '400'}>{lbl}</text>
         ))}
       </svg>
-
-      {/* Tooltip box */}
       {tooltip !== null && (
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-xs rounded-lg px-3 py-2 pointer-events-none whitespace-nowrap z-10"
-          style={{ transform: `translateX(${tooltip < 3 ? '0%' : tooltip > labels.length - 3 ? '-100%' : '-50%'})`, left: `${(xPos(tooltip) / 600) * 100}%` }}>
+        <div className="absolute top-0 bg-neutral-900 text-white text-xs rounded-lg px-3 py-2 pointer-events-none whitespace-nowrap z-10"
+          style={{ left: `${Math.min(Math.max((xPos(tooltip) / W) * 100, 10), 70)}%`, transform: 'translateX(-50%)' }}>
           <div className="font-medium mb-1">{labels[tooltip]}</div>
-          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-            <span>{formatRupiah(incomeData[tooltip] || 0)}</span></div>
-          <div className="flex items-center gap-1.5 mt-0.5"><span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
-            <span>{formatRupiah(expenseData[tooltip] || 0)}</span></div>
+          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" /><span>{formatRupiah(incomeData[tooltip] || 0)}</span></div>
+          <div className="flex items-center gap-1.5 mt-0.5"><span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" /><span>{formatRupiah(expenseData[tooltip] || 0)}</span></div>
         </div>
       )}
     </div>
   )
 }
 
+// ─── Monthly Bar Chart (per bulan dalam 1 tahun) ──────────────────────────────
+function MonthlyChart({ incomeData, expenseData, labels }) {
+  const [tooltip, setTooltip] = useState(null)
+  const W = 520, H = 160, PAD = { t: 12, r: 12, b: 32, l: 52 }
+  const chartW = W - PAD.l - PAD.r
+  const chartH = H - PAD.t - PAD.b
+  const n = labels.length
+  const barGroupW = chartW / n
+  const barW = Math.min((barGroupW - 8) / 2, 18)
+
+  const allVals = [...incomeData, ...expenseData].filter(v => v > 0)
+  const maxVal = allVals.length > 0 ? Math.max(...allVals) : 1
+
+  function xCenter(i) { return PAD.l + i * barGroupW + barGroupW / 2 }
+  function barH(v) { return (v / maxVal) * chartH }
+
+  const ticks = [0, 0.5, 1].map(f => Math.round(maxVal * f))
+
+  return (
+    <div className="relative w-full">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+        {ticks.map((t, i) => (
+          <g key={i}>
+            <line x1={PAD.l} y1={PAD.t + chartH - (t / maxVal) * chartH} x2={W - PAD.r} y2={PAD.t + chartH - (t / maxVal) * chartH} stroke="#e5e5e5" strokeWidth="0.8" />
+            <text x={PAD.l - 6} y={PAD.t + chartH - (t / maxVal) * chartH + 4} textAnchor="end" fontSize="9" fill="#a3a3a3">
+              {t >= 1000000 ? (t / 1000000).toFixed(1) + 'jt' : t >= 1000 ? (t / 1000).toFixed(0) + 'rb' : t}
+            </text>
+          </g>
+        ))}
+        {labels.map((lbl, i) => {
+          const cx = xCenter(i)
+          const iH = barH(incomeData[i] || 0)
+          const eH = barH(expenseData[i] || 0)
+          const isHover = tooltip === i
+          return (
+            <g key={i} onMouseEnter={() => setTooltip(i)} onMouseLeave={() => setTooltip(null)} style={{ cursor: 'default' }}>
+              <rect x={cx - barW - 1} y={PAD.t + chartH - iH} width={barW} height={iH}
+                fill={isHover ? '#15803d' : '#16a34a'} rx="2" opacity={iH > 0 ? 1 : 0} />
+              <rect x={cx + 1} y={PAD.t + chartH - eH} width={barW} height={eH}
+                fill={isHover ? '#b91c1c' : '#dc2626'} rx="2" opacity={eH > 0 ? 1 : 0} />
+              <text x={cx} y={H - 8} textAnchor="middle" fontSize="8.5" fill={isHover ? '#171717' : '#a3a3a3'}
+                fontWeight={isHover ? '600' : '400'}>{lbl}</text>
+            </g>
+          )
+        })}
+      </svg>
+      {tooltip !== null && (
+        <div className="absolute top-0 bg-neutral-900 text-white text-xs rounded-lg px-3 py-2 pointer-events-none whitespace-nowrap z-10"
+          style={{ left: `${Math.min(Math.max((xCenter(tooltip) / W) * 100, 10), 70)}%`, transform: 'translateX(-50%)' }}>
+          <div className="font-medium mb-1">{labels[tooltip]}</div>
+          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" /><span>{formatRupiah(incomeData[tooltip] || 0)}</span></div>
+          <div className="flex items-center gap-1.5 mt-0.5"><span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" /><span>{formatRupiah(expenseData[tooltip] || 0)}</span></div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Main Laporan Component ───────────────────────────────────────────────────
 export default function Laporan() {
   const navigate = useNavigate()
   const [period, setPeriod] = useState('hari')
@@ -140,18 +166,27 @@ export default function Laporan() {
   const [loading, setLoading] = useState(true)
   const [transactions, setTransactions] = useState([])
   const [expenses, setExpenses] = useState([])
+
+  // Expense form (add / edit)
   const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', date: new Date().toISOString().split('T')[0] })
   const [showExpenseModal, setShowExpenseModal] = useState(false)
+  const [editingExpense, setEditingExpense] = useState(null) // null = add, object = edit
   const [deleteExpense, setDeleteExpense] = useState(null)
-  const [chartPeriod, setChartPeriod] = useState('minggu')
-  const [chartIncome, setChartIncome] = useState([])
-  const [chartExpense, setChartExpense] = useState([])
-  const [chartLabels, setChartLabels] = useState([])
 
-  useEffect(() => { loadData() }, [period, customStart, customEnd])
-  useEffect(() => { loadChartData() }, [chartPeriod])
+  // Weekly chart state (7 hari mulai tanggal tertentu)
+  const [weeklyEndDate, setWeeklyEndDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [weeklyIncome, setWeeklyIncome] = useState([])
+  const [weeklyExpense, setWeeklyExpense] = useState([])
+  const [weeklyLabels, setWeeklyLabels] = useState([])
 
-  async function loadData() {
+  // Monthly chart state (per bulan dalam 1 tahun)
+  const [monthlyYear, setMonthlyYear] = useState(() => new Date().getFullYear())
+  const [monthlyIncome, setMonthlyIncome] = useState([])
+  const [monthlyExpense, setMonthlyExpense] = useState([])
+  const monthlyLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des']
+
+  // ─── Load main table data ──────────────────────────────────────────────────
+  const loadData = useCallback(async () => {
     if (period === 'custom' && (!customStart || !customEnd)) return
     setLoading(true)
     const { start, end } = getDateRange(period, customStart, customEnd)
@@ -162,55 +197,125 @@ export default function Laporan() {
     setTransactions(trxRes.data || [])
     setExpenses(expRes.data || [])
     setLoading(false)
-    // Refresh chart too when data changes
-    loadChartData()
-  }
+  }, [period, customStart, customEnd])
 
-  async function loadChartData() {
-    const days = chartPeriod === 'minggu' ? 7 : 30
-    const start = new Date()
-    start.setDate(start.getDate() - (days - 1))
-    start.setHours(0, 0, 0, 0)
+  // ─── Load weekly chart ─────────────────────────────────────────────────────
+  const loadWeeklyChart = useCallback(async () => {
+    const end = new Date(weeklyEndDate); end.setHours(23, 59, 59, 999)
+    const start = new Date(weeklyEndDate); start.setDate(start.getDate() - 6); start.setHours(0, 0, 0, 0)
 
     const [trxRes, expRes] = await Promise.all([
-      supabase.from('transactions').select('created_at, total_amount').gte('created_at', start.toISOString()).order('created_at'),
-      supabase.from('expenses').select('expense_date, amount').gte('expense_date', start.toISOString().split('T')[0]).order('expense_date')
+      supabase.from('transactions').select('created_at, total_amount').gte('created_at', start.toISOString()).lte('created_at', end.toISOString()),
+      supabase.from('expenses').select('expense_date, amount').gte('expense_date', start.toISOString().split('T')[0]).lte('expense_date', end.toISOString().split('T')[0])
     ])
 
     const incMap = {}, expMap = {}, lbls = []
-    for (let i = 0; i < days; i++) {
+    for (let i = 0; i < 7; i++) {
       const d = new Date(start); d.setDate(start.getDate() + i)
       const key = d.toISOString().split('T')[0]
       incMap[key] = 0; expMap[key] = 0
-      const day = new Date(key + 'T12:00:00')
-      lbls.push(chartPeriod === 'minggu'
-        ? ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'][day.getDay()]
-        : String(day.getDate()))
+      lbls.push(['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'][new Date(key + 'T12:00:00').getDay()] + ' ' + d.getDate())
     }
-
     ;(trxRes.data || []).forEach(t => { const k = t.created_at.split('T')[0]; if (k in incMap) incMap[k] += t.total_amount })
     ;(expRes.data || []).forEach(e => { const k = e.expense_date; if (k in expMap) expMap[k] += e.amount })
 
-    setChartIncome(Object.values(incMap))
-    setChartExpense(Object.values(expMap))
-    setChartLabels(lbls)
-  }
+    setWeeklyIncome(Object.values(incMap))
+    setWeeklyExpense(Object.values(expMap))
+    setWeeklyLabels(lbls)
+  }, [weeklyEndDate])
 
+  // ─── Load monthly chart ────────────────────────────────────────────────────
+  const loadMonthlyChart = useCallback(async () => {
+    const startStr = `${monthlyYear}-01-01`
+    const endStr = `${monthlyYear}-12-31`
+
+    const [trxRes, expRes] = await Promise.all([
+      supabase.from('transactions').select('created_at, total_amount').gte('created_at', startStr).lte('created_at', endStr + 'T23:59:59'),
+      supabase.from('expenses').select('expense_date, amount').gte('expense_date', startStr).lte('expense_date', endStr)
+    ])
+
+    const incArr = Array(12).fill(0)
+    const expArr = Array(12).fill(0)
+    ;(trxRes.data || []).forEach(t => { const m = new Date(t.created_at).getMonth(); incArr[m] += t.total_amount })
+    ;(expRes.data || []).forEach(e => { const m = new Date(e.expense_date + 'T12:00:00').getMonth(); expArr[m] += e.amount })
+
+    setMonthlyIncome(incArr)
+    setMonthlyExpense(expArr)
+  }, [monthlyYear])
+
+  useEffect(() => { loadData() }, [loadData])
+  useEffect(() => { loadWeeklyChart() }, [loadWeeklyChart])
+  useEffect(() => { loadMonthlyChart() }, [loadMonthlyChart])
+
+  // ─── Realtime subscription ─────────────────────────────────────────────────
+  useEffect(() => {
+    const channel = supabase
+      .channel('laporan-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => {
+        loadData()
+        loadWeeklyChart()
+        loadMonthlyChart()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transaction_items' }, () => {
+        loadData()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => {
+        loadData()
+        loadWeeklyChart()
+        loadMonthlyChart()
+      })
+      .subscribe()
+    return () => supabase.removeChannel(channel)
+  }, [loadData, loadWeeklyChart, loadMonthlyChart])
+
+  // ─── Computed metrics ──────────────────────────────────────────────────────
   const totalPemasukan = transactions.reduce((s, t) => s + t.total_amount, 0)
   const totalPengeluaran = expenses.reduce((s, e) => s + e.amount, 0)
   const labaBersih = totalPemasukan - totalPengeluaran
   const totalTransaksi = transactions.length
   const rataPerTransaksi = totalTransaksi > 0 ? Math.round(totalPemasukan / totalTransaksi) : 0
 
-  async function handleAddExpense() {
+  // ─── Year options ──────────────────────────────────────────────────────────
+  const currentYear = new Date().getFullYear()
+  const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i)
+
+  // ─── Expense CRUD ──────────────────────────────────────────────────────────
+  function openAddExpense() {
+    setEditingExpense(null)
+    setExpenseForm({ description: '', amount: '', date: new Date().toISOString().split('T')[0] })
+    setShowExpenseModal(true)
+  }
+
+  function openEditExpense(expense) {
+    setEditingExpense(expense)
+    setExpenseForm({ description: expense.description, amount: String(expense.amount), date: expense.expense_date })
+    setShowExpenseModal(true)
+  }
+
+  async function handleSaveExpense() {
     if (!expenseForm.description.trim()) { toast.error('Keterangan wajib diisi'); return }
     if (!expenseForm.amount || isNaN(expenseForm.amount)) { toast.error('Jumlah wajib diisi'); return }
-    const { error } = await supabase.from('expenses').insert({ description: expenseForm.description.trim(), amount: parseInt(expenseForm.amount), expense_date: expenseForm.date })
-    if (error) { toast.error('Gagal menyimpan pengeluaran'); return }
-    toast.success('Pengeluaran dicatat')
+
+    if (editingExpense) {
+      const { error } = await supabase.from('expenses').update({
+        description: expenseForm.description.trim(),
+        amount: parseInt(expenseForm.amount),
+        expense_date: expenseForm.date,
+      }).eq('id', editingExpense.id)
+      if (error) { toast.error('Gagal memperbarui pengeluaran'); return }
+      toast.success('Pengeluaran diperbarui')
+    } else {
+      const { error } = await supabase.from('expenses').insert({
+        description: expenseForm.description.trim(),
+        amount: parseInt(expenseForm.amount),
+        expense_date: expenseForm.date,
+      })
+      if (error) { toast.error('Gagal menyimpan pengeluaran'); return }
+      toast.success('Pengeluaran dicatat')
+    }
     setExpenseForm({ description: '', amount: '', date: new Date().toISOString().split('T')[0] })
     setShowExpenseModal(false)
-    loadData()
+    setEditingExpense(null)
   }
 
   async function handleDeleteExpense(expense) {
@@ -218,9 +323,9 @@ export default function Laporan() {
     if (error) { toast.error('Gagal menghapus'); return }
     toast.success('Pengeluaran dihapus')
     setDeleteExpense(null)
-    loadData()
   }
 
+  // ─── Export ────────────────────────────────────────────────────────────────
   function exportExcel() {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
@@ -230,7 +335,7 @@ export default function Laporan() {
       { 'Keterangan': 'Jumlah Transaksi', 'Jumlah': totalTransaksi },
     ]), 'Ringkasan')
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
-      transactions.map(t => ({ 'Tanggal': formatDateTime(t.created_at), 'Total': t.total_amount, 'Bayar': t.cash_given, 'Kembalian': t.change_amount, 'Item': t.transaction_items?.length || 0 }))
+      transactions.map(t => ({ 'Tanggal': formatDateTime(t.created_at), 'Total': t.total_amount, 'Bayar': t.cash_given, 'Kembalian': t.change_amount }))
     ), 'Transaksi')
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
       expenses.map(e => ({ 'Tanggal': e.expense_date, 'Keterangan': e.description, 'Jumlah': e.amount }))
@@ -282,13 +387,14 @@ export default function Laporan() {
       </nav>
 
       <div className="max-w-6xl mx-auto px-4 py-6">
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-lg font-semibold text-neutral-900">Laporan Keuangan</h1>
             <p className="text-xs text-neutral-500 mt-0.5">Ringkasan pemasukan, pengeluaran, dan omset toko</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setShowExpenseModal(true)} className="px-3 py-2 text-xs border border-neutral-200 text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors">+ Pengeluaran</button>
+            <button onClick={openAddExpense} className="px-3 py-2 text-xs border border-neutral-200 text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors">+ Pengeluaran</button>
             <button onClick={exportExcel} className="px-3 py-2 text-xs border border-neutral-200 text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors flex items-center gap-1">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Excel
@@ -333,36 +439,51 @@ export default function Laporan() {
           ))}
         </div>
 
-        {/* Line Chart */}
-        <div className="bg-white rounded-2xl border border-neutral-200 p-5 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-sm font-semibold text-neutral-800">Grafik Keuangan</h2>
-              <div className="flex items-center gap-3 mt-1">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-0.5 bg-green-600 rounded" />
-                  <span className="text-xs text-neutral-500">Pemasukan</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-0.5 bg-red-500 rounded" />
-                  <span className="text-xs text-neutral-500">Pengeluaran</span>
+        {/* ── DUAL CHARTS ─────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+
+          {/* Weekly Chart */}
+          <div className="bg-white rounded-2xl border border-neutral-200 p-5">
+            <div className="flex items-start justify-between mb-3 gap-2 flex-wrap">
+              <div>
+                <h2 className="text-sm font-semibold text-neutral-800">7 Hari Terakhir</h2>
+                <div className="flex items-center gap-3 mt-1">
+                  <div className="flex items-center gap-1"><div className="w-3 h-0.5 bg-green-600 rounded" /><span className="text-xs text-neutral-400">Pemasukan</span></div>
+                  <div className="flex items-center gap-1"><div className="w-3 h-0.5 bg-red-500 rounded" /><span className="text-xs text-neutral-400">Pengeluaran</span></div>
                 </div>
               </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-neutral-400">s/d</span>
+                <input type="date" value={weeklyEndDate} max={new Date().toISOString().split('T')[0]}
+                  onChange={e => setWeeklyEndDate(e.target.value)}
+                  className="px-2 py-1 text-xs border border-neutral-200 rounded-lg outline-none focus:border-neutral-400 bg-neutral-50" />
+              </div>
             </div>
-            <div className="flex gap-1">
-              {[{ key: 'minggu', label: '7 Hari' }, { key: 'bulan', label: '30 Hari' }].map(p => (
-                <button key={p.key} onClick={() => setChartPeriod(p.key)}
-                  className={`px-3 py-1 rounded-full text-xs transition-colors ${chartPeriod === p.key ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100'}`}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
+            {weeklyLabels.length > 0
+              ? <WeeklyChart incomeData={weeklyIncome} expenseData={weeklyExpense} labels={weeklyLabels} />
+              : <div className="h-32 flex items-center justify-center text-neutral-300 text-xs">Memuat...</div>}
           </div>
-          {chartLabels.length > 0 && (
-            <LineChart incomeData={chartIncome} expenseData={chartExpense} labels={chartLabels} />
-          )}
+
+          {/* Monthly Chart */}
+          <div className="bg-white rounded-2xl border border-neutral-200 p-5">
+            <div className="flex items-start justify-between mb-3 gap-2 flex-wrap">
+              <div>
+                <h2 className="text-sm font-semibold text-neutral-800">Per Bulan</h2>
+                <div className="flex items-center gap-3 mt-1">
+                  <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-500 rounded-sm opacity-80" /><span className="text-xs text-neutral-400">Pemasukan</span></div>
+                  <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-500 rounded-sm opacity-80" /><span className="text-xs text-neutral-400">Pengeluaran</span></div>
+                </div>
+              </div>
+              <select value={monthlyYear} onChange={e => setMonthlyYear(Number(e.target.value))}
+                className="px-2 py-1 text-xs border border-neutral-200 rounded-lg outline-none focus:border-neutral-400 bg-neutral-50">
+                {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+            <MonthlyChart incomeData={monthlyIncome} expenseData={monthlyExpense} labels={monthlyLabels} />
+          </div>
         </div>
 
+        {/* Tables */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Transactions */}
           <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
@@ -392,7 +513,7 @@ export default function Laporan() {
           <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
             <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-neutral-800">Pengeluaran</h2>
-              <button onClick={() => setShowExpenseModal(true)} className="text-xs text-neutral-500 hover:text-neutral-800 transition-colors">+ Tambah</button>
+              <button onClick={openAddExpense} className="text-xs text-neutral-500 hover:text-neutral-800 transition-colors">+ Tambah</button>
             </div>
             {loading ? (
               <div className="py-12 text-center text-neutral-400 text-sm">Memuat...</div>
@@ -406,10 +527,20 @@ export default function Laporan() {
                       <div className="text-xs font-medium text-neutral-800">{e.description}</div>
                       <div className="text-xs text-neutral-400 mt-0.5">{formatDate(e.expense_date)}</div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <div className="text-sm font-semibold text-red-500">-{formatRupiah(e.amount)}</div>
-                      <button onClick={() => setDeleteExpense(e)} className="text-neutral-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      {/* Edit button */}
+                      <button onClick={() => openEditExpense(e)} className="text-neutral-300 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-all" title="Edit">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                      </button>
+                      {/* Delete button */}
+                      <button onClick={() => setDeleteExpense(e)} className="text-neutral-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all" title="Hapus">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
                       </button>
                     </div>
                   </div>
@@ -420,32 +551,48 @@ export default function Laporan() {
         </div>
       </div>
 
+      {/* ── Add / Edit Expense Modal ────────────────────────────────────────── */}
       {showExpenseModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
-            <h2 className="text-base font-semibold text-neutral-900 mb-4">Tambah Pengeluaran</h2>
+            <h2 className="text-base font-semibold text-neutral-900 mb-4">
+              {editingExpense ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}
+            </h2>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">Keterangan</label>
-                <input type="text" value={expenseForm.description} onChange={e => setExpenseForm(f => ({ ...f, description: e.target.value }))} placeholder="misal: Kulakan mainan" className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors" />
+                <input type="text" value={expenseForm.description}
+                  onChange={e => setExpenseForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="misal: Kulakan mainan"
+                  className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">Jumlah (Rp)</label>
-                <input type="number" value={expenseForm.amount} onChange={e => setExpenseForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors" />
+                <input type="number" value={expenseForm.amount}
+                  onChange={e => setExpenseForm(f => ({ ...f, amount: e.target.value }))}
+                  placeholder="0"
+                  className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">Tanggal</label>
-                <input type="date" value={expenseForm.date} onChange={e => setExpenseForm(f => ({ ...f, date: e.target.value }))} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors" />
+                <input type="date" value={expenseForm.date}
+                  onChange={e => setExpenseForm(f => ({ ...f, date: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors" />
               </div>
             </div>
             <div className="flex gap-3 mt-5">
-              <button onClick={() => setShowExpenseModal(false)} className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors">Batal</button>
-              <button onClick={handleAddExpense} className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors">Simpan</button>
+              <button onClick={() => { setShowExpenseModal(false); setEditingExpense(null) }}
+                className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors">Batal</button>
+              <button onClick={handleSaveExpense}
+                className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors">
+                {editingExpense ? 'Simpan Perubahan' : 'Simpan'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* ── Delete Expense Confirm ────────────────────────────────────────── */}
       {deleteExpense && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
