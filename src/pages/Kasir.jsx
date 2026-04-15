@@ -118,9 +118,14 @@ export default function Kasir() {
   const cashGiven = parseInt(cashInput) || 0
   const change = cashGiven - cartTotal
 
-  const filteredProducts = products.filter(p =>
-    activeCategory === 'Semua' || p.category === activeCategory
-  )
+  // FIX: auto-sort produk stok habis ke belakang
+  const filteredProducts = products
+    .filter(p => activeCategory === 'Semua' || p.category === activeCategory)
+    .sort((a, b) => {
+      if (a.stock === 0 && b.stock > 0) return 1
+      if (a.stock > 0 && b.stock === 0) return -1
+      return 0
+    })
 
   async function handlePayment() {
     if (change < 0) return

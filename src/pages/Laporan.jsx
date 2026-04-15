@@ -10,15 +10,44 @@ function formatRupiah(n) { return 'Rp ' + Number(n).toLocaleString('id-ID') }
 function formatDate(d) { return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) }
 function formatDateTime(d) { return new Date(d).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }
 
-function getDateRange(period, customStart, customEnd) {
+// FIX: gunakan waktu lokal, bukan UTC
+function getLocalDateString(date = new Date()) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function getDateRange(period, customMonth) {
   const now = new Date()
   let start, end
   end = new Date(now); end.setHours(23, 59, 59, 999)
-  if (period === 'hari') { start = new Date(now); start.setHours(0, 0, 0, 0) }
-  else if (period === 'minggu') { start = new Date(now); start.setDate(now.getDate() - 6); start.setHours(0, 0, 0, 0) }
-  else if (period === 'bulan') { start = new Date(now.getFullYear(), now.getMonth(), 1) }
-  else if (period === 'custom') { start = new Date(customStart); start.setHours(0, 0, 0, 0); end = new Date(customEnd); end.setHours(23, 59, 59, 999) }
+  if (period === 'hari') {
+    start = new Date(now); start.setHours(0, 0, 0, 0)
+  } else if (period === 'minggu') {
+    start = new Date(now); start.setDate(now.getDate() - 6); start.setHours(0, 0, 0, 0)
+  } else if (period === 'bulan') {
+    start = new Date(now.getFullYear(), now.getMonth(), 1)
+  } else if (period === 'custom' && customMonth) {
+    // customMonth = "YYYY-MM"
+    const [y, m] = customMonth.split('-').map(Number)
+    start = new Date(y, m - 1, 1)
+    end = new Date(y, m, 0, 23, 59, 59, 999) // hari terakhir bulan itu
+  }
   return { start, end }
+}
+
+// Hasilkan opsi bulan: dari bulan ini sampai 12 bulan ke belakang
+function getMonthOptions() {
+  const options = []
+  const now = new Date()
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const label = d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+    options.push({ value, label })
+  }
+  return options
 }
 
 // ─── Weekly Line Chart (7 hari) ───────────────────────────────────────────────
@@ -161,63 +190,81 @@ function MonthlyChart({ incomeData, expenseData, labels }) {
 export default function Laporan() {
   const navigate = useNavigate()
   const [period, setPeriod] = useState('hari')
-  const [customStart, setCustomStart] = useState('')
-  const [customEnd, setCustomEnd] = useState('')
+  // FIX: custom sekarang per bulan, default bulan ini
+  const [customMonth, setCustomMonth] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
   const [loading, setLoading] = useState(true)
   const [transactions, setTransactions] = useState([])
   const [expenses, setExpenses] = useState([])
 
-  // Expense form (add / edit)
-  const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', date: new Date().toISOString().split('T')[0] })
+  const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', date: getLocalDateString() })
   const [showExpenseModal, setShowExpenseModal] = useState(false)
-  const [editingExpense, setEditingExpense] = useState(null) // null = add, object = edit
+  const [editingExpense, setEditingExpense] = useState(null)
   const [deleteExpense, setDeleteExpense] = useState(null)
 
-  // Weekly chart state (7 hari mulai tanggal tertentu)
-  const [weeklyEndDate, setWeeklyEndDate] = useState(() => new Date().toISOString().split('T')[0])
+  // FIX: weeklyEndDate pakai tanggal lokal bukan UTC
+  const [weeklyEndDate, setWeeklyEndDate] = useState(() => getLocalDateString())
   const [weeklyIncome, setWeeklyIncome] = useState([])
   const [weeklyExpense, setWeeklyExpense] = useState([])
   const [weeklyLabels, setWeeklyLabels] = useState([])
 
-  // Monthly chart state (per bulan dalam 1 tahun)
   const [monthlyYear, setMonthlyYear] = useState(() => new Date().getFullYear())
   const [monthlyIncome, setMonthlyIncome] = useState([])
   const [monthlyExpense, setMonthlyExpense] = useState([])
   const monthlyLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des']
 
+  const monthOptions = getMonthOptions()
+
   // ─── Load main table data ──────────────────────────────────────────────────
   const loadData = useCallback(async () => {
-    if (period === 'custom' && (!customStart || !customEnd)) return
+    if (period === 'custom' && !customMonth) return
     setLoading(true)
-    const { start, end } = getDateRange(period, customStart, customEnd)
+    const { start, end } = getDateRange(period, customMonth)
+    const startDateStr = getLocalDateString(start)
+    const endDateStr = getLocalDateString(end)
     const [trxRes, expRes] = await Promise.all([
       supabase.from('transactions').select('*, transaction_items(*)').gte('created_at', start.toISOString()).lte('created_at', end.toISOString()).order('created_at', { ascending: false }),
-      supabase.from('expenses').select('*').gte('expense_date', start.toISOString().split('T')[0]).lte('expense_date', end.toISOString().split('T')[0]).order('expense_date', { ascending: false })
+      supabase.from('expenses').select('*').gte('expense_date', startDateStr).lte('expense_date', endDateStr).order('expense_date', { ascending: false })
     ])
     setTransactions(trxRes.data || [])
     setExpenses(expRes.data || [])
     setLoading(false)
-  }, [period, customStart, customEnd])
+  }, [period, customMonth])
 
   // ─── Load weekly chart ─────────────────────────────────────────────────────
   const loadWeeklyChart = useCallback(async () => {
-    const end = new Date(weeklyEndDate); end.setHours(23, 59, 59, 999)
-    const start = new Date(weeklyEndDate); start.setDate(start.getDate() - 6); start.setHours(0, 0, 0, 0)
+    // FIX: parse weeklyEndDate sebagai tanggal lokal (bukan UTC)
+    const [ey, em, ed] = weeklyEndDate.split('-').map(Number)
+    const end = new Date(ey, em - 1, ed, 23, 59, 59, 999)
+    const start = new Date(ey, em - 1, ed - 6, 0, 0, 0, 0)
+
+    const startStr = getLocalDateString(start)
+    const endStr = getLocalDateString(end)
 
     const [trxRes, expRes] = await Promise.all([
       supabase.from('transactions').select('created_at, total_amount').gte('created_at', start.toISOString()).lte('created_at', end.toISOString()),
-      supabase.from('expenses').select('expense_date, amount').gte('expense_date', start.toISOString().split('T')[0]).lte('expense_date', end.toISOString().split('T')[0])
+      supabase.from('expenses').select('expense_date, amount').gte('expense_date', startStr).lte('expense_date', endStr)
     ])
 
     const incMap = {}, expMap = {}, lbls = []
     for (let i = 0; i < 7; i++) {
-      const d = new Date(start); d.setDate(start.getDate() + i)
-      const key = d.toISOString().split('T')[0]
+      const d = new Date(ey, em - 1, ed - 6 + i)
+      const key = getLocalDateString(d)
       incMap[key] = 0; expMap[key] = 0
-      lbls.push(['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'][new Date(key + 'T12:00:00').getDay()] + ' ' + d.getDate())
+      lbls.push(['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'][d.getDay()] + ' ' + d.getDate())
     }
-    ;(trxRes.data || []).forEach(t => { const k = t.created_at.split('T')[0]; if (k in incMap) incMap[k] += t.total_amount })
-    ;(expRes.data || []).forEach(e => { const k = e.expense_date; if (k in expMap) expMap[k] += e.amount })
+
+    ;(trxRes.data || []).forEach(t => {
+      // FIX: konversi waktu transaksi ke tanggal lokal
+      const localDate = getLocalDateString(new Date(t.created_at))
+      if (localDate in incMap) incMap[localDate] += t.total_amount
+    })
+    ;(expRes.data || []).forEach(e => {
+      const k = e.expense_date
+      if (k in expMap) expMap[k] += e.amount
+    })
 
     setWeeklyIncome(Object.values(incMap))
     setWeeklyExpense(Object.values(expMap))
@@ -236,8 +283,17 @@ export default function Laporan() {
 
     const incArr = Array(12).fill(0)
     const expArr = Array(12).fill(0)
-    ;(trxRes.data || []).forEach(t => { const m = new Date(t.created_at).getMonth(); incArr[m] += t.total_amount })
-    ;(expRes.data || []).forEach(e => { const m = new Date(e.expense_date + 'T12:00:00').getMonth(); expArr[m] += e.amount })
+    // FIX: gunakan tanggal lokal untuk monthly chart juga
+    ;(trxRes.data || []).forEach(t => {
+      const localDate = new Date(t.created_at)
+      // Adjust ke waktu lokal
+      const m = localDate.getMonth()
+      incArr[m] += t.total_amount
+    })
+    ;(expRes.data || []).forEach(e => {
+      const m = new Date(e.expense_date + 'T12:00:00').getMonth()
+      expArr[m] += e.amount
+    })
 
     setMonthlyIncome(incArr)
     setMonthlyExpense(expArr)
@@ -275,14 +331,13 @@ export default function Laporan() {
   const totalTransaksi = transactions.length
   const rataPerTransaksi = totalTransaksi > 0 ? Math.round(totalPemasukan / totalTransaksi) : 0
 
-  // ─── Year options ──────────────────────────────────────────────────────────
   const currentYear = new Date().getFullYear()
   const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i)
 
   // ─── Expense CRUD ──────────────────────────────────────────────────────────
   function openAddExpense() {
     setEditingExpense(null)
-    setExpenseForm({ description: '', amount: '', date: new Date().toISOString().split('T')[0] })
+    setExpenseForm({ description: '', amount: '', date: getLocalDateString() })
     setShowExpenseModal(true)
   }
 
@@ -313,7 +368,7 @@ export default function Laporan() {
       if (error) { toast.error('Gagal menyimpan pengeluaran'); return }
       toast.success('Pengeluaran dicatat')
     }
-    setExpenseForm({ description: '', amount: '', date: new Date().toISOString().split('T')[0] })
+    setExpenseForm({ description: '', amount: '', date: getLocalDateString() })
     setShowExpenseModal(false)
     setEditingExpense(null)
   }
@@ -340,14 +395,14 @@ export default function Laporan() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
       expenses.map(e => ({ 'Tanggal': e.expense_date, 'Keterangan': e.description, 'Jumlah': e.amount }))
     ), 'Pengeluaran')
-    const lbl = period === 'hari' ? 'hari-ini' : period === 'minggu' ? '7-hari' : period === 'bulan' ? 'bulan-ini' : `${customStart}_${customEnd}`
+    const lbl = period === 'hari' ? 'hari-ini' : period === 'minggu' ? '7-hari' : period === 'bulan' ? 'bulan-ini' : customMonth
     XLSX.writeFile(wb, `laporan-kasir-${lbl}.xlsx`)
     toast.success('Export Excel berhasil')
   }
 
   function exportPDF() {
     const doc = new jsPDF()
-    const lbl = period === 'hari' ? 'Hari Ini' : period === 'minggu' ? '7 Hari Terakhir' : period === 'bulan' ? 'Bulan Ini' : `${customStart} s/d ${customEnd}`
+    const lbl = period === 'hari' ? 'Hari Ini' : period === 'minggu' ? '7 Hari Terakhir' : period === 'bulan' ? 'Bulan Ini' : monthOptions.find(o => o.value === customMonth)?.label || customMonth
     doc.setFontSize(16); doc.text('Laporan Keuangan', 14, 18)
     doc.setFontSize(10); doc.setTextColor(120)
     doc.text(`Periode: ${lbl}`, 14, 26)
@@ -360,14 +415,19 @@ export default function Laporan() {
       doc.setFontSize(11); doc.text('Daftar Pengeluaran', 14, doc.lastAutoTable.finalY + 12)
       autoTable(doc, { startY: doc.lastAutoTable.finalY + 16, head: [['Tanggal', 'Keterangan', 'Jumlah']], body: expenses.map(e => [e.expense_date, e.description, formatRupiah(e.amount)]), styles: { fontSize: 8 }, headStyles: { fillColor: [30, 30, 30] } })
     }
-    const f = period === 'hari' ? 'hari-ini' : period === 'minggu' ? '7-hari' : period === 'bulan' ? 'bulan-ini' : `${customStart}_${customEnd}`
+    const f = period === 'hari' ? 'hari-ini' : period === 'minggu' ? '7-hari' : period === 'bulan' ? 'bulan-ini' : customMonth
     doc.save(`laporan-kasir-${f}.pdf`)
     toast.success('Export PDF berhasil')
   }
 
   async function handleLogout() { await supabase.auth.signOut() }
 
-  const PERIODS = [{ key: 'hari', label: 'Hari Ini' }, { key: 'minggu', label: '7 Hari' }, { key: 'bulan', label: 'Bulan Ini' }, { key: 'custom', label: 'Custom' }]
+  const PERIODS = [
+    { key: 'hari', label: 'Hari Ini' },
+    { key: 'minggu', label: '7 Hari' },
+    { key: 'bulan', label: 'Bulan Ini' },
+    { key: 'custom', label: 'Per Bulan' },
+  ]
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -414,12 +474,17 @@ export default function Laporan() {
               {p.label}
             </button>
           ))}
+          {/* FIX: custom jadi dropdown pilih bulan */}
           {period === 'custom' && (
-            <div className="flex items-center gap-2 ml-2">
-              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="px-2 py-1 text-xs border border-neutral-200 rounded-lg outline-none focus:border-neutral-400" />
-              <span className="text-xs text-neutral-400">s/d</span>
-              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="px-2 py-1 text-xs border border-neutral-200 rounded-lg outline-none focus:border-neutral-400" />
-            </div>
+            <select
+              value={customMonth}
+              onChange={e => setCustomMonth(e.target.value)}
+              className="px-3 py-1.5 text-xs border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-white ml-1"
+            >
+              {monthOptions.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
           )}
         </div>
 
@@ -454,7 +519,7 @@ export default function Laporan() {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-neutral-400">s/d</span>
-                <input type="date" value={weeklyEndDate} max={new Date().toISOString().split('T')[0]}
+                <input type="date" value={weeklyEndDate} max={getLocalDateString()}
                   onChange={e => setWeeklyEndDate(e.target.value)}
                   className="px-2 py-1 text-xs border border-neutral-200 rounded-lg outline-none focus:border-neutral-400 bg-neutral-50" />
               </div>
@@ -529,14 +594,12 @@ export default function Laporan() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-sm font-semibold text-red-500">-{formatRupiah(e.amount)}</div>
-                      {/* Edit button */}
                       <button onClick={() => openEditExpense(e)} className="text-neutral-300 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-all" title="Edit">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
                           <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
                         </svg>
                       </button>
-                      {/* Delete button */}
                       <button onClick={() => setDeleteExpense(e)} className="text-neutral-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all" title="Hapus">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
