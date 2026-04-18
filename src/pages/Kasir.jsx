@@ -25,6 +25,7 @@ export default function Kasir() {
   const [loading, setLoading] = useState(true)
   const [payModal, setPayModal] = useState(false)
   const [cashInput, setCashInput] = useState('')
+  const [noteInput, setNoteInput] = useState('')   // ← FITUR BARU: catatan transaksi
   const [payLoading, setPayLoading] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [showCartSheet, setShowCartSheet] = useState(false)
@@ -132,7 +133,12 @@ export default function Kasir() {
     try {
       const { data: trx, error: trxError } = await supabase
         .from('transactions')
-        .insert({ total_amount: cartTotal, cash_given: cashGiven, change_amount: change })
+        .insert({
+          total_amount: cartTotal,
+          cash_given: cashGiven,
+          change_amount: change,
+          note: noteInput.trim() || null,   // ← FITUR BARU: simpan catatan
+        })
         .select().single()
       if (trxError) throw trxError
 
@@ -154,7 +160,7 @@ export default function Kasir() {
       }
 
       toast.success('Transaksi berhasil!')
-      setCart([]); setCashInput(''); setPayModal(false); setShowCartSheet(false)
+      setCart([]); setCashInput(''); setNoteInput(''); setPayModal(false); setShowCartSheet(false)
       loadProducts()
     } catch (err) {
       toast.error('Gagal menyimpan transaksi')
@@ -232,7 +238,7 @@ export default function Kasir() {
         </div>
         <button
           data-testid="btn-bayar"
-          onClick={() => { setCashInput(''); setPayModal(true) }}
+          onClick={() => { setCashInput(''); setNoteInput(''); setPayModal(true) }}
           disabled={cart.length === 0}
           className="w-full py-3 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
@@ -485,6 +491,21 @@ export default function Kasir() {
               <span className="font-medium">Kembalian</span>
               <span data-testid="change-amount" className="font-semibold">{cashInput ? formatRupiah(Math.abs(change)) : '—'}</span>
             </div>
+
+            {/* ── FITUR BARU: Catatan Transaksi ── */}
+            <label className="block text-xs font-medium text-neutral-600 mb-1.5">
+              Catatan <span className="text-neutral-400 font-normal">(opsional)</span>
+            </label>
+            <input
+              data-testid="note-input"
+              type="text"
+              value={noteInput}
+              onChange={e => setNoteInput(e.target.value)}
+              placeholder="misal: titip ke teman, COD, dll"
+              maxLength={100}
+              className="w-full px-3 py-2.5 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors mb-4"
+            />
+
             <div className="flex gap-2">
               <button
                 data-testid="btn-cancel-payment"
