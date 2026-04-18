@@ -118,7 +118,6 @@ export default function Kasir() {
   const cashGiven = parseInt(cashInput) || 0
   const change = cashGiven - cartTotal
 
-  // FIX: auto-sort produk stok habis ke belakang
   const filteredProducts = products
     .filter(p => activeCategory === 'Semua' || p.category === activeCategory)
     .sort((a, b) => {
@@ -168,7 +167,6 @@ export default function Kasir() {
     setShowLogoutConfirm(false)
   }
 
-  // CART CONTENT — shared between sidebar and bottom sheet
   const CartContent = () => (
     <>
       <div className="flex-1 overflow-y-auto">
@@ -192,14 +190,26 @@ export default function Kasir() {
                   <div className="text-xs font-medium text-neutral-800 leading-tight truncate">{item.name}</div>
                   <div className="text-xs text-neutral-400 mt-0.5">{formatRupiah(item.price)}</div>
                   <div className="flex items-center gap-2 mt-1.5">
-                    <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 rounded-md border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-100 text-sm">−</button>
+                    <button
+                      data-testid={`cart-decrease-${item.id}`}
+                      onClick={() => removeFromCart(item.id)}
+                      className="w-6 h-6 rounded-md border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-100 text-sm"
+                    >−</button>
                     <span className="text-xs font-semibold w-4 text-center">{item.qty}</span>
-                    <button onClick={() => addToCart(item)} className="w-6 h-6 rounded-md border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-100 text-sm">+</button>
+                    <button
+                      data-testid={`cart-increase-${item.id}`}
+                      onClick={() => addToCart(item)}
+                      className="w-6 h-6 rounded-md border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-100 text-sm"
+                    >+</button>
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <div className="text-xs font-semibold text-neutral-800">{formatRupiah(item.price * item.qty)}</div>
-                  <button onClick={() => deleteFromCart(item.id)} className="text-neutral-300 hover:text-red-400 transition-colors mt-1">
+                  <button
+                    data-testid={`cart-delete-${item.id}`}
+                    onClick={() => deleteFromCart(item.id)}
+                    className="text-neutral-300 hover:text-red-400 transition-colors mt-1"
+                  >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
@@ -218,9 +228,10 @@ export default function Kasir() {
         </div>
         <div className="flex justify-between text-sm font-semibold text-neutral-900 mb-3">
           <span>Total</span>
-          <span>{formatRupiah(cartTotal)}</span>
+          <span data-testid="cart-total">{formatRupiah(cartTotal)}</span>
         </div>
         <button
+          data-testid="btn-bayar"
           onClick={() => { setCashInput(''); setPayModal(true) }}
           disabled={cart.length === 0}
           className="w-full py-3 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -246,9 +257,24 @@ export default function Kasir() {
           <span className="font-semibold text-neutral-900 text-sm">Sistem Kasir</span>
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={() => navigate('/stok')} className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors">Stok</button>
-          <button onClick={() => navigate('/laporan')} className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors">Laporan</button>
-          <button onClick={() => setShowLogoutConfirm(true)} className="px-3 py-1.5 text-xs text-neutral-500 hover:bg-neutral-100 rounded-lg transition-colors">Keluar</button>
+          <button
+            id="nav-stok"
+            data-testid="nav-stok"
+            onClick={() => navigate('/stok')}
+            className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+          >Stok</button>
+          <button
+            id="nav-laporan"
+            data-testid="nav-laporan"
+            onClick={() => navigate('/laporan')}
+            className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+          >Laporan</button>
+          <button
+            id="nav-keluar"
+            data-testid="nav-keluar"
+            onClick={() => setShowLogoutConfirm(true)}
+            className="px-3 py-1.5 text-xs text-neutral-500 hover:bg-neutral-100 rounded-lg transition-colors"
+          >Keluar</button>
         </div>
       </nav>
 
@@ -264,6 +290,7 @@ export default function Kasir() {
               </svg>
               <input
                 ref={searchRef}
+                data-testid="search-input"
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
@@ -277,6 +304,7 @@ export default function Kasir() {
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg z-50 overflow-hidden">
                   {searchResults.map(p => (
                     <button key={p.id}
+                      data-testid={`search-result-${p.id}`}
                       onMouseDown={() => { addToCart(p); setSearchQuery(''); setShowDropdown(false); if (p.stock > 0) toast.success(`${p.name} ditambahkan`, { duration: 1000 }) }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-50 transition-colors text-left">
                       <span className="text-lg">{CATEGORY_ICONS[p.category] || '📦'}</span>
@@ -291,6 +319,7 @@ export default function Kasir() {
               )}
             </div>
             <button
+              data-testid="btn-scan"
               onClick={() => setShowScanner(true)}
               className="flex items-center gap-1.5 px-3 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-medium rounded-xl transition-colors flex-shrink-0"
             >
@@ -305,8 +334,12 @@ export default function Kasir() {
           {/* CATEGORY TABS */}
           <div className="bg-white border-b border-neutral-200 px-4 flex gap-2 overflow-x-auto flex-shrink-0 py-2">
             {CATEGORIES.map(cat => (
-              <button key={cat} onClick={() => setActiveCategory(cat)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${activeCategory === cat ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
+              <button
+                key={cat}
+                data-testid={`category-${cat.toLowerCase().replace(/\s+/g, '-')}`}
+                onClick={() => setActiveCategory(cat)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${activeCategory === cat ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
+              >
                 {cat !== 'Semua' && <span className="mr-1">{CATEGORY_ICONS[cat]}</span>}
                 {cat}
               </button>
@@ -325,10 +358,13 @@ export default function Kasir() {
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-3">
                 {filteredProducts.map(product => (
-                  <button key={product.id}
+                  <button
+                    key={product.id}
+                    data-testid={`product-${product.id}`}
                     onClick={() => { addToCart(product); if (product.stock > 0) toast.success(`${product.name} ditambahkan`, { duration: 1000 }) }}
                     disabled={product.stock === 0}
-                    className={`bg-white border rounded-xl p-2 md:p-3 text-center transition-all active:scale-95 ${product.stock === 0 ? 'opacity-40 cursor-not-allowed border-neutral-100' : 'border-neutral-200 hover:border-neutral-300 cursor-pointer hover:shadow-sm'}`}>
+                    className={`bg-white border rounded-xl p-2 md:p-3 text-center transition-all active:scale-95 ${product.stock === 0 ? 'opacity-40 cursor-not-allowed border-neutral-100' : 'border-neutral-200 hover:border-neutral-300 cursor-pointer hover:shadow-sm'}`}
+                  >
                     {product.photo_url ? (
                       <img src={product.photo_url} alt={product.name} className="w-full aspect-square object-cover rounded-lg mb-2" />
                     ) : (
@@ -355,11 +391,11 @@ export default function Kasir() {
               </svg>
               <span className="text-sm font-semibold text-neutral-900">Keranjang</span>
               {cartCount > 0 && (
-                <span className="bg-neutral-900 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{cartCount}</span>
+                <span data-testid="cart-count" className="bg-neutral-900 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{cartCount}</span>
               )}
             </div>
             {cart.length > 0 && (
-              <button onClick={clearCart} className="text-xs text-neutral-400 hover:text-red-500 transition-colors">Kosongkan</button>
+              <button data-testid="btn-clear-cart" onClick={clearCart} className="text-xs text-neutral-400 hover:text-red-500 transition-colors">Kosongkan</button>
             )}
           </div>
           <CartContent />
@@ -369,6 +405,7 @@ export default function Kasir() {
       {/* MOBILE FLOATING CART BUTTON */}
       <div className="md:hidden fixed bottom-4 left-4 right-4 z-30">
         <button
+          data-testid="btn-open-cart-sheet"
           onClick={() => setShowCartSheet(true)}
           className="w-full flex items-center justify-between px-5 py-3.5 bg-neutral-900 text-white rounded-2xl shadow-lg active:scale-98 transition-transform"
         >
@@ -401,7 +438,7 @@ export default function Kasir() {
                 {cart.length > 0 && (
                   <button onClick={clearCart} className="text-xs text-neutral-400 hover:text-red-500 transition-colors">Kosongkan</button>
                 )}
-                <button onClick={() => setShowCartSheet(false)} className="w-7 h-7 flex items-center justify-center rounded-full bg-neutral-100 text-neutral-500">
+                <button data-testid="btn-close-cart-sheet" onClick={() => setShowCartSheet(false)} className="w-7 h-7 flex items-center justify-center rounded-full bg-neutral-100 text-neutral-500">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                   </svg>
@@ -435,16 +472,31 @@ export default function Kasir() {
               <span>Total</span><span>{formatRupiah(cartTotal)}</span>
             </div>
             <label className="block text-xs font-medium text-neutral-600 mb-1.5">Uang Diterima (Rp)</label>
-            <input type="number" value={cashInput} onChange={e => setCashInput(e.target.value)} placeholder="0" autoFocus
-              className="w-full px-3 py-2.5 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors mb-3" />
+            <input
+              data-testid="cash-input"
+              type="number"
+              value={cashInput}
+              onChange={e => setCashInput(e.target.value)}
+              placeholder="0"
+              autoFocus
+              className="w-full px-3 py-2.5 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors mb-3"
+            />
             <div className={`flex justify-between text-sm rounded-xl px-3 py-2 mb-4 ${change >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
               <span className="font-medium">Kembalian</span>
-              <span className="font-semibold">{cashInput ? formatRupiah(Math.abs(change)) : '—'}</span>
+              <span data-testid="change-amount" className="font-semibold">{cashInput ? formatRupiah(Math.abs(change)) : '—'}</span>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setPayModal(false)} className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors">Batal</button>
-              <button onClick={handlePayment} disabled={change < 0 || !cashInput || payLoading}
-                className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+              <button
+                data-testid="btn-cancel-payment"
+                onClick={() => setPayModal(false)}
+                className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors"
+              >Batal</button>
+              <button
+                data-testid="btn-confirm-payment"
+                onClick={handlePayment}
+                disabled={change < 0 || !cashInput || payLoading}
+                className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
                 {payLoading ? 'Memproses...' : 'Konfirmasi'}
               </button>
             </div>
@@ -459,8 +511,16 @@ export default function Kasir() {
             <h2 className="text-base font-semibold text-neutral-900 mb-2">Keluar dari Akun?</h2>
             <p className="text-sm text-neutral-500 mb-6">Kamu akan keluar dari sesi ini. Pastikan semua transaksi sudah tersimpan.</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors">Batal</button>
-              <button onClick={handleLogout} className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors">Keluar</button>
+              <button
+                data-testid="btn-cancel-logout"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors"
+              >Batal</button>
+              <button
+                data-testid="btn-confirm-logout"
+                onClick={handleLogout}
+                className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors"
+              >Keluar</button>
             </div>
           </div>
         </div>

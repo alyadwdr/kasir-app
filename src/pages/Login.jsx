@@ -38,6 +38,7 @@ export default function Login() {
               <label className="block text-xs font-medium text-neutral-600 mb-1.5">Email</label>
               <input
                 id="email-input"
+                data-testid="email-input"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -51,6 +52,7 @@ export default function Login() {
               <div className="relative">
                 <input
                   id="password-input"
+                  data-testid="password-input"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -60,6 +62,7 @@ export default function Login() {
                 />
                 <button
                   type="button"
+                  data-testid="toggle-password"
                   onClick={() => setShowPassword(v => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
                 >
@@ -79,12 +82,13 @@ export default function Login() {
               </div>
             </div>
             {error && (
-              <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              <div data-testid="login-error" className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                 {error}
               </div>
             )}
             <button
               id="login-button"
+              data-testid="login-button"
               type="submit"
               disabled={loading}
               className="w-full py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"

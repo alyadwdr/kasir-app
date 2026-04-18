@@ -34,7 +34,6 @@ export default function Stok() {
 
   async function loadProducts() {
     setLoading(true)
-    // FIX: tambah filter is_active = true agar produk yang dihapus tidak muncul
     const { data, error } = await supabase
       .from('products')
       .select('*')
@@ -144,9 +143,24 @@ export default function Stok() {
           <span className="font-semibold text-neutral-900 text-sm">Sistem Kasir</span>
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={() => navigate('/kasir')} className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors">Kasir</button>
-          <button onClick={() => navigate('/laporan')} className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors">Laporan</button>
-          <button onClick={() => setShowLogoutConfirm(true)} className="px-3 py-1.5 text-xs text-neutral-500 hover:bg-neutral-100 rounded-lg transition-colors">Keluar</button>
+          <button
+            id="nav-kasir"
+            data-testid="nav-kasir"
+            onClick={() => navigate('/kasir')}
+            className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+          >Kasir</button>
+          <button
+            id="nav-laporan"
+            data-testid="nav-laporan"
+            onClick={() => navigate('/laporan')}
+            className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+          >Laporan</button>
+          <button
+            id="nav-keluar"
+            data-testid="nav-keluar"
+            onClick={() => setShowLogoutConfirm(true)}
+            className="px-3 py-1.5 text-xs text-neutral-500 hover:bg-neutral-100 rounded-lg transition-colors"
+          >Keluar</button>
         </div>
       </nav>
 
@@ -156,7 +170,11 @@ export default function Stok() {
             <h1 className="text-lg font-semibold text-neutral-900">Manajemen Stok</h1>
             <p className="text-xs text-neutral-500 mt-0.5">{products.length} produk terdaftar</p>
           </div>
-          <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors">
+          <button
+            data-testid="btn-tambah-barang"
+            onClick={openAdd}
+            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors"
+          >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Tambah Barang
           </button>
@@ -165,26 +183,36 @@ export default function Stok() {
         <div className="grid grid-cols-3 gap-3 mb-6">
           <div className="bg-white rounded-xl border border-neutral-200 p-4">
             <div className="text-xs text-neutral-500 mb-1">Total Produk</div>
-            <div className="text-2xl font-semibold text-neutral-900">{stockStats.total}</div>
+            <div data-testid="stat-total" className="text-2xl font-semibold text-neutral-900">{stockStats.total}</div>
           </div>
           <div className="bg-white rounded-xl border border-neutral-200 p-4">
             <div className="text-xs text-neutral-500 mb-1">Stok Menipis</div>
-            <div className="text-2xl font-semibold text-orange-500">{stockStats.menipis}</div>
+            <div data-testid="stat-menipis" className="text-2xl font-semibold text-orange-500">{stockStats.menipis}</div>
           </div>
           <div className="bg-white rounded-xl border border-neutral-200 p-4">
             <div className="text-xs text-neutral-500 mb-1">Stok Habis</div>
-            <div className="text-2xl font-semibold text-red-500">{stockStats.habis}</div>
+            <div data-testid="stat-habis" className="text-2xl font-semibold text-red-500">{stockStats.habis}</div>
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="relative flex-1">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Cari nama, kategori, atau barcode..."
-              className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 transition-colors" />
+            <input
+              data-testid="stok-search"
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Cari nama, kategori, atau barcode..."
+              className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 transition-colors"
+            />
           </div>
-          <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
-            className="px-3 py-2 text-sm bg-white border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 transition-colors">
+          <select
+            data-testid="stok-filter-category"
+            value={filterCategory}
+            onChange={e => setFilterCategory(e.target.value)}
+            className="px-3 py-2 text-sm bg-white border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 transition-colors"
+          >
             <option value="Semua">Semua Kategori</option>
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
@@ -214,7 +242,7 @@ export default function Stok() {
                 </thead>
                 <tbody className="divide-y divide-neutral-50">
                   {filtered.map(product => (
-                    <tr key={product.id} className="hover:bg-neutral-50 transition-colors">
+                    <tr key={product.id} data-testid={`row-product-${product.id}`} className="hover:bg-neutral-50 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-lg bg-neutral-100 flex items-center justify-center text-lg flex-shrink-0 overflow-hidden">
@@ -238,8 +266,16 @@ export default function Stok() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => openEdit(product)} className="text-xs text-neutral-600 hover:text-neutral-900 px-2 py-1 rounded-lg hover:bg-neutral-100 transition-colors">Edit</button>
-                          <button onClick={() => setDeleteConfirm(product)} className="text-xs text-neutral-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">Hapus</button>
+                          <button
+                            data-testid={`btn-edit-${product.id}`}
+                            onClick={() => openEdit(product)}
+                            className="text-xs text-neutral-600 hover:text-neutral-900 px-2 py-1 rounded-lg hover:bg-neutral-100 transition-colors"
+                          >Edit</button>
+                          <button
+                            data-testid={`btn-delete-${product.id}`}
+                            onClick={() => setDeleteConfirm(product)}
+                            className="text-xs text-neutral-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                          >Hapus</button>
                         </div>
                       </td>
                     </tr>
@@ -257,7 +293,11 @@ export default function Stok() {
           <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-y-auto max-h-[90vh]">
             <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
               <h2 className="text-base font-semibold text-neutral-900">{editProduct ? 'Edit Barang' : 'Tambah Barang Baru'}</h2>
-              <button onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-600">
+              <button
+                data-testid="btn-close-modal"
+                onClick={() => setShowModal(false)}
+                className="text-neutral-400 hover:text-neutral-600"
+              >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
@@ -269,12 +309,19 @@ export default function Stok() {
                 {form.photo_url ? (
                   <div className="relative w-24 h-24">
                     <img src={form.photo_url} alt="preview" className="w-24 h-24 object-cover rounded-xl border border-neutral-200" />
-                    <button onClick={() => setForm(f => ({ ...f, photo_url: '' }))}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600">×</button>
+                    <button
+                      data-testid="btn-remove-photo"
+                      onClick={() => setForm(f => ({ ...f, photo_url: '' }))}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                    >×</button>
                   </div>
                 ) : (
-                  <button onClick={() => fileInputRef.current?.click()} disabled={uploadingPhoto}
-                    className="w-24 h-24 border-2 border-dashed border-neutral-200 rounded-xl flex flex-col items-center justify-center text-neutral-400 hover:border-neutral-400 hover:text-neutral-600 transition-colors">
+                  <button
+                    data-testid="btn-upload-photo"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    className="w-24 h-24 border-2 border-dashed border-neutral-200 rounded-xl flex flex-col items-center justify-center text-neutral-400 hover:border-neutral-400 hover:text-neutral-600 transition-colors"
+                  >
                     {uploadingPhoto ? <span className="text-xs">Upload...</span> : (
                       <>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -289,15 +336,25 @@ export default function Stok() {
               {/* NAMA */}
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">Nama Barang *</label>
-                <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="misal: Mainan Mobil Remote"
-                  className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors" />
+                <input
+                  data-testid="input-name"
+                  type="text"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="misal: Mainan Mobil Remote"
+                  className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors"
+                />
               </div>
 
               {/* KATEGORI */}
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">Kategori *</label>
-                <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors">
+                <select
+                  data-testid="input-category"
+                  value={form.category}
+                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors"
+                >
                   {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_ICONS[c]} {c}</option>)}
                 </select>
               </div>
@@ -306,13 +363,25 @@ export default function Stok() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-neutral-600 mb-1.5">Harga Jual (Rp) *</label>
-                  <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="0"
-                    className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors" />
+                  <input
+                    data-testid="input-price"
+                    type="number"
+                    value={form.price}
+                    onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                    placeholder="0"
+                    className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-neutral-600 mb-1.5">Stok *</label>
-                  <input type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: e.target.value }))} placeholder="0"
-                    className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors" />
+                  <input
+                    data-testid="input-stock"
+                    type="number"
+                    value={form.stock}
+                    onChange={e => setForm(f => ({ ...f, stock: e.target.value }))}
+                    placeholder="0"
+                    className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors"
+                  />
                 </div>
               </div>
 
@@ -320,11 +389,20 @@ export default function Stok() {
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">Barcode (opsional)</label>
                 <div className="flex gap-2">
-                  <input type="text" value={form.barcode} onChange={e => setForm(f => ({ ...f, barcode: e.target.value }))}
+                  <input
+                    data-testid="input-barcode"
+                    type="text"
+                    value={form.barcode}
+                    onChange={e => setForm(f => ({ ...f, barcode: e.target.value }))}
                     placeholder="Scan atau ketik barcode"
-                    className="flex-1 px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors font-mono" />
-                  <button type="button" onClick={() => setShowBarcodeScanner(true)}
-                    className="px-3 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-medium flex-shrink-0">
+                    className="flex-1 px-3 py-2 text-sm border border-neutral-200 rounded-xl outline-none focus:border-neutral-400 bg-neutral-50 focus:bg-white transition-colors font-mono"
+                  />
+                  <button
+                    type="button"
+                    data-testid="btn-scan-barcode"
+                    onClick={() => setShowBarcodeScanner(true)}
+                    className="px-3 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-medium flex-shrink-0"
+                  >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
                       <circle cx="12" cy="13" r="4"/>
@@ -337,8 +415,16 @@ export default function Stok() {
             </div>
 
             <div className="px-6 py-4 border-t border-neutral-100 flex gap-3">
-              <button onClick={() => setShowModal(false)} className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors">Batal</button>
-              <button onClick={handleSave} className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors">Simpan</button>
+              <button
+                data-testid="btn-modal-cancel"
+                onClick={() => setShowModal(false)}
+                className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors"
+              >Batal</button>
+              <button
+                data-testid="btn-modal-save"
+                onClick={handleSave}
+                className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors"
+              >Simpan</button>
             </div>
           </div>
         </div>
@@ -354,10 +440,20 @@ export default function Stok() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
             <h2 className="text-base font-semibold text-neutral-900 mb-2">Hapus Barang?</h2>
-            <p className="text-sm text-neutral-500 mb-6"><span className="font-medium text-neutral-800">"{deleteConfirm.name}"</span> akan dihapus dari daftar produk. Data transaksi lama tetap tersimpan.</p>
+            <p className="text-sm text-neutral-500 mb-6">
+              <span className="font-medium text-neutral-800">"{deleteConfirm.name}"</span> akan dihapus dari daftar produk. Data transaksi lama tetap tersimpan.
+            </p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors">Batal</button>
-              <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 py-2.5 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 transition-colors">Hapus</button>
+              <button
+                data-testid="btn-cancel-delete"
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors"
+              >Batal</button>
+              <button
+                data-testid="btn-confirm-delete"
+                onClick={() => handleDelete(deleteConfirm)}
+                className="flex-1 py-2.5 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 transition-colors"
+              >Hapus</button>
             </div>
           </div>
         </div>
@@ -370,8 +466,16 @@ export default function Stok() {
             <h2 className="text-base font-semibold text-neutral-900 mb-2">Keluar dari Akun?</h2>
             <p className="text-sm text-neutral-500 mb-6">Kamu akan keluar dari sesi ini. Pastikan semua transaksi sudah tersimpan.</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors">Batal</button>
-              <button onClick={handleLogout} className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors">Keluar</button>
+              <button
+                data-testid="btn-cancel-logout"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-2.5 border border-neutral-200 text-sm text-neutral-600 rounded-xl hover:bg-neutral-50 transition-colors"
+              >Batal</button>
+              <button
+                data-testid="btn-confirm-logout"
+                onClick={handleLogout}
+                className="flex-1 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-700 transition-colors"
+              >Keluar</button>
             </div>
           </div>
         </div>
