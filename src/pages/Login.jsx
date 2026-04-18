@@ -37,6 +37,7 @@ export default function Login() {
             <div>
               <label className="block text-xs font-medium text-neutral-600 mb-1.5">Email</label>
               <input
+                id="email-input"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -49,6 +50,7 @@ export default function Login() {
               <label className="block text-xs font-medium text-neutral-600 mb-1.5">Password</label>
               <div className="relative">
                 <input
+                  id="password-input"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -82,6 +84,7 @@ export default function Login() {
               </div>
             )}
             <button
+              id="login-button"
               type="submit"
               disabled={loading}
               className="w-full py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
